@@ -1,4 +1,6 @@
 # deepin-anything
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fre2zero%2Fdeepin-anything.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fre2zero%2Fdeepin-anything?ref=badge_shield)
+
 
 Something like everything, but nothing is really like anything...
 
@@ -65,3 +67,5 @@ We encourage you to report issues and contribute changes
 deepin-anything prior to version 5.0.15 (included) is licensed under  [GPL-2.0-only](LICENSE).
 
 deepin-anything after version 5.0.15 is licensed under [GPL-3.0-or-later](LICENSE).
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fre2zero%2Fdeepin-anything.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fre2zero%2Fdeepin-anything?ref=badge_large)
