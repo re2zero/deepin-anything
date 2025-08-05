@@ -11,6 +11,7 @@
 
 #include "vfs_layer_monitor.h"
 #include "memory_map_monitor.h"
+#include "fexit_production_monitor.h"
 #include "event_deduplicator.h"
 #include "performance_monitor.h"
 #include "event_manager.h"
@@ -41,6 +42,9 @@ bool EnhancedEventManager::initialize() {
     // Initialize based on selected strategy
     bool success = false;
     switch (current_strategy_) {
+        case FEXIT_PRODUCTION:
+            success = initializeFexitProduction();
+            break;
         case FULL_COVERAGE:
             success = initializeFullCoverage();
             break;
@@ -55,6 +59,7 @@ bool EnhancedEventManager::initialize() {
     if (success) {
         initialized_ = true;
         printf("Enhanced Event Manager initialized with strategy: %s\n",
+               current_strategy_ == FEXIT_PRODUCTION ? "FEXIT_PRODUCTION" :
                current_strategy_ == FULL_COVERAGE ? "FULL_COVERAGE" :
                current_strategy_ == SYSCALL_ONLY ? "SYSCALL_ONLY" : "KERNEL_MODULE");
     }
@@ -63,22 +68,32 @@ bool EnhancedEventManager::initialize() {
 }
 
 EnhancedEventManager::MonitoringStrategy EnhancedEventManager::selectOptimalStrategy() {
-    // Strategy selection algorithm based on capabilities
+    // 🚀 Strategy selection algorithm based on capabilities
     
-    // If we have VFS monitoring capabilities (either tracepoints or kprobe), prefer full coverage
+    // First priority: Fexit production monitoring (kernel 5.5+)
+    if (capabilities_.supports_fexit && 
+        (capabilities_.has_cap_bpf || capabilities_.has_cap_sys_admin)) {
+        std::cout << "🎯 Selected FEXIT_PRODUCTION strategy (optimal)" << std::endl;
+        return FEXIT_PRODUCTION;
+    }
+    
+    // Second priority: Full coverage with traditional eBPF
     if ((capabilities_.vfs_tracepoints_available || capabilities_.vfs_kprobe_available) && 
         capabilities_.syscall_tracepoints_available &&
         (capabilities_.has_cap_bpf || capabilities_.has_cap_sys_admin)) {
+        std::cout << "🔧 Selected FULL_COVERAGE strategy (traditional eBPF)" << std::endl;
         return FULL_COVERAGE;
     }
     
-    // If we only have syscall tracepoints, use syscall-only mode
+    // Third priority: Syscall-only mode
     if (capabilities_.syscall_tracepoints_available &&
         (capabilities_.has_cap_bpf || capabilities_.has_cap_sys_admin)) {
+        std::cout << "⚠️ Selected SYSCALL_ONLY strategy (limited)" << std::endl;
         return SYSCALL_ONLY;
     }
     
     // Fallback to kernel module
+    std::cout << "🔙 Selected KERNEL_MODULE strategy (fallback)" << std::endl;
     return KERNEL_MODULE;
 }
 
@@ -89,6 +104,10 @@ EnhancedEventManager::MonitoringCapabilities EnhancedEventManager::detectCapabil
     int version = parseKernelVersion();
     caps.kernel_version_major = version >> 16;
     caps.kernel_version_minor = (version >> 8) & 0xFF;
+    
+    // Check fexit support first (kernel 5.5+)
+    caps.supports_fexit = (caps.kernel_version_major > 5 || 
+                          (caps.kernel_version_major == 5 && caps.kernel_version_minor >= 5));
     
     // Check various capabilities
     caps.vfs_tracepoints_available = checkVFSTracepointsAvailable();
@@ -174,6 +193,21 @@ bool EnhancedEventManager::startMonitoring() {
     };
     
     switch (current_strategy_) {
+        case FEXIT_PRODUCTION:
+            // 🚀 使用新的Fexit生产监控器
+            if (fexit_monitor_) {
+                auto fexit_handler = [dedup_handler](const vfs_event* event) {
+                    if (event) {
+                        dedup_handler(*event);
+                    }
+                };
+                success = fexit_monitor_->startMonitoring(fexit_handler);
+                if (success) {
+                    std::cout << "🎯 Fexit Production Monitor started successfully" << std::endl;
+                }
+            }
+            break;
+            
         case FULL_COVERAGE:
             if (vfs_monitor_) {
                 success = vfs_monitor_->start();
@@ -220,6 +254,11 @@ void EnhancedEventManager::stopMonitoring() {
         return;
     }
     
+    // Stop Fexit monitor
+    if (fexit_monitor_) {
+        fexit_monitor_->stopMonitoring();
+    }
+    
     if (vfs_monitor_) {
         vfs_monitor_->stop();
     }
@@ -257,6 +296,23 @@ double EnhancedEventManager::getEventsPerSecond() const {
         return perf_monitor_->getEventsPerSecond();
     }
     return 0.0;
+}
+
+bool EnhancedEventManager::initializeFexitProduction() {
+    std::cout << "🚀 Initializing Fexit Production monitoring..." << std::endl;
+    
+    // Initialize performance monitor
+    perf_monitor_ = std::make_unique<PerformanceMonitor>();
+    
+    // Initialize Fexit production monitor
+    fexit_monitor_ = std::make_unique<FexitProductionMonitor>();
+    if (!fexit_monitor_->initialize()) {
+        std::cerr << "❌ Failed to initialize Fexit Production Monitor" << std::endl;
+        return false;
+    }
+    
+    std::cout << "✅ Fexit Production monitoring initialized successfully" << std::endl;
+    return true;
 }
 
 bool EnhancedEventManager::initializeFullCoverage() {

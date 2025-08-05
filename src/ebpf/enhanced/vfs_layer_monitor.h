@@ -3,56 +3,63 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#ifndef VFS_LAYER_MONITOR_H
-#define VFS_LAYER_MONITOR_H
+#pragma once
 
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 #include <functional>
-#include <memory>
 #include <thread>
 #include <atomic>
+#include <vector>
+#include <iostream>
 #include "../include/ebpf_common.h"
 
-struct bpf_object;
-struct bpf_link;
-struct ring_buffer;
+// Forward declaration - bytecode will be included in .cpp file
+extern unsigned char vfs_monitor_enhanced_o[];
+extern unsigned int vfs_monitor_enhanced_o_len;
 
 namespace ebpf {
 
 class VFSLayerMonitor {
 public:
-    VFSLayerMonitor();
+    VFSLayerMonitor() : obj_(nullptr), ring_buf_(nullptr), is_running_(false) {}
     ~VFSLayerMonitor();
 
+    // Initialize the VFS layer monitor
     bool initialize();
+    
+    // Start monitoring VFS layer events
     bool start();
+    
+    // Stop monitoring
     void stop();
     
+    // Set event handler callback
     void setEventHandler(std::function<void(const vfs_event&)> handler);
 
 private:
+    // eBPF object and links
+    struct bpf_object *obj_;
+    std::vector<struct bpf_link*> kprobe_links_;  // Use vector for multiple links
+    
+    // Ring buffer for receiving events
+    struct ring_buffer *ring_buf_;
+    
+    // Threading
+    std::thread polling_thread_;
+    std::atomic<bool> is_running_;
+    
+    // Event handler
+    std::function<void(const vfs_event&)> event_handler_;
+    
+    // Internal methods
     bool loadVFSProgram();
     bool attachKprobes();
     void detachKprobes();
-    
     void ringBufferPollLoop();
+    
+    // Static callback for ring buffer events
     static int handleRingBufferEvent(void *ctx, void *data, size_t data_sz);
-
-private:
-    struct bpf_object *obj_;
-    struct bpf_link *vfs_create_link_;
-    struct bpf_link *vfs_mkdir_link_;
-    struct bpf_link *vfs_unlink_link_;
-    struct bpf_link *vfs_rmdir_link_;
-    struct bpf_link *vfs_rename_link_;
-    
-    struct ring_buffer *rb_;
-    std::thread poll_thread_;
-    std::atomic<bool> running_;
-    
-    std::function<void(const vfs_event&)> event_handler_;
-    bool initialized_;
 };
 
 } // namespace ebpf
-
-#endif // VFS_LAYER_MONITOR_H

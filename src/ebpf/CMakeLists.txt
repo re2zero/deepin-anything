@@ -51,6 +51,10 @@ endfunction()
 compile_ebpf_program(vfs_monitor ${CMAKE_CURRENT_SOURCE_DIR}/programs/vfs_monitor.c)
 compile_ebpf_program(vfs_monitor_enhanced ${CMAKE_CURRENT_SOURCE_DIR}/programs/vfs_monitor_enhanced.c)
 compile_ebpf_program(mmap_monitor ${CMAKE_CURRENT_SOURCE_DIR}/programs/mmap_monitor.c)
+compile_ebpf_program(fentry_simple_vfs ${CMAKE_CURRENT_SOURCE_DIR}/programs/fentry_simple_vfs.c)
+compile_ebpf_program(fexit_simple_production ${CMAKE_CURRENT_SOURCE_DIR}/programs/fexit_simple_production.c)
+compile_ebpf_program(fexit_with_path ${CMAKE_CURRENT_SOURCE_DIR}/programs/fexit_with_path.c)
+compile_ebpf_program(fexit_filesystem_monitor ${CMAKE_CURRENT_SOURCE_DIR}/programs/fexit_filesystem_monitor.c)
 
 # Create userspace library
 add_library(ebpf_event_source STATIC
@@ -64,6 +68,7 @@ add_library(ebpf_event_source STATIC
 add_library(ebpf_enhanced STATIC
     enhanced/simple_enhanced_manager.cpp
     enhanced/enhanced_event_manager.cpp
+    enhanced/fexit_production_monitor.cpp
     enhanced/event_deduplicator.cpp
     enhanced/vfs_layer_monitor.cpp
     enhanced/memory_map_monitor.cpp
@@ -111,7 +116,7 @@ target_compile_definitions(ebpf_enhanced PRIVATE
 
 # Ensure eBPF bytecode is generated before library compilation
 add_dependencies(ebpf_event_source vfs_monitor_bytecode)
-add_dependencies(ebpf_enhanced vfs_monitor_enhanced_bytecode mmap_monitor_bytecode)
+add_dependencies(ebpf_enhanced vfs_monitor_enhanced_bytecode mmap_monitor_bytecode fexit_simple_production_bytecode fexit_filesystem_monitor_bytecode)
 
 # Create test executables
 add_executable(test_ebpf test_ebpf.cpp)
@@ -160,4 +165,87 @@ target_include_directories(test_complete_monitoring PRIVATE
 add_executable(debug_struct_size debug_struct_size.cpp)
 target_include_directories(debug_struct_size PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-) 
+)
+
+# Fentry performance test
+add_executable(test_fentry_performance test_fentry_performance.cpp)
+target_link_libraries(test_fentry_performance 
+    ${LIBBPF_LIBRARIES}
+    pthread
+)
+target_include_directories(test_fentry_performance PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${LIBBPF_INCLUDE_DIRS}
+)
+add_dependencies(test_fentry_performance fentry_simple_vfs_bytecode)
+
+# Fexit production test
+add_executable(test_fexit_production test_fexit_production.cpp)
+target_link_libraries(test_fexit_production 
+    ${LIBBPF_LIBRARIES}
+    pthread
+)
+target_include_directories(test_fexit_production PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${LIBBPF_INCLUDE_DIRS}
+)
+add_dependencies(test_fexit_production fexit_simple_production_bytecode)
+
+# Fexit path extraction test
+add_executable(test_fexit_path test_fexit_path.cpp)
+target_link_libraries(test_fexit_path 
+    ${LIBBPF_LIBRARIES}
+    pthread
+)
+target_include_directories(test_fexit_path PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${LIBBPF_INCLUDE_DIRS}
+)
+add_dependencies(test_fexit_path fexit_with_path_bytecode)
+
+# Fexit production integration test
+add_executable(test_fexit_integration test_fexit_integration.cpp
+    enhanced/fexit_production_monitor.cpp
+)
+target_link_libraries(test_fexit_integration 
+    ${LIBBPF_LIBRARIES}
+    pthread
+)
+target_include_directories(test_fexit_integration PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${LIBBPF_INCLUDE_DIRS}
+)
+add_dependencies(test_fexit_integration fexit_with_path_bytecode)
+
+# Fexit filtered filesystem test
+add_executable(test_fexit_filtered test_fexit_filtered.cpp)
+target_link_libraries(test_fexit_filtered 
+    ${LIBBPF_LIBRARIES}
+    pthread
+)
+target_include_directories(test_fexit_filtered PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${LIBBPF_INCLUDE_DIRS}
+)
+add_dependencies(test_fexit_filtered fexit_filesystem_monitor_bytecode)
+
+# Enhanced Event Manager with Fexit integration test
+add_executable(test_enhanced_fexit test_enhanced_fexit.cpp)
+target_link_libraries(test_enhanced_fexit 
+    ebpf_enhanced
+    ${LIBBPF_LIBRARIES}
+    pthread
+)
+target_include_directories(test_enhanced_fexit PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${LIBBPF_INCLUDE_DIRS}
+)
+add_dependencies(test_enhanced_fexit ebpf_enhanced) 

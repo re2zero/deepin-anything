@@ -3,55 +3,63 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#ifndef MEMORY_MAP_MONITOR_H
-#define MEMORY_MAP_MONITOR_H
+#pragma once
 
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 #include <functional>
-#include <memory>
 #include <thread>
 #include <atomic>
+#include <vector>
+#include <iostream>
 #include "../include/ebpf_common.h"
 
-struct bpf_object;
-struct bpf_link;
-struct ring_buffer;
+// Forward declaration - bytecode will be included in .cpp file
+extern unsigned char mmap_monitor_o[];
+extern unsigned int mmap_monitor_o_len;
 
 namespace ebpf {
 
 class MemoryMapMonitor {
 public:
-    MemoryMapMonitor();
+    MemoryMapMonitor() : obj_(nullptr), ring_buf_(nullptr), is_running_(false) {}
     ~MemoryMapMonitor();
 
+    // Initialize the memory map monitor
     bool initialize();
+    
+    // Start monitoring memory map events
     bool start();
+    
+    // Stop monitoring
     void stop();
     
+    // Set event handler callback
     void setEventHandler(std::function<void(const vfs_event&)> handler);
 
 private:
+    // eBPF object and links
+    struct bpf_object *obj_;
+    std::vector<struct bpf_link*> kprobe_links_;  // Use vector for multiple links
+    
+    // Ring buffer for receiving events
+    struct ring_buffer *ring_buf_;
+    
+    // Threading
+    std::thread polling_thread_;
+    std::atomic<bool> is_running_;
+    
+    // Event handler
+    std::function<void(const vfs_event&)> event_handler_;
+    
+    // Internal methods
     bool loadMMapProgram();
     bool attachTracepoints();
     void detachTracepoints();
-    
     void ringBufferPollLoop();
+    
+    // Static callback for ring buffer events
     static int handleRingBufferEvent(void *ctx, void *data, size_t data_sz);
-
-private:
-    struct bpf_object *obj_;
-    struct bpf_link *mmap_link_;
-    struct bpf_link *munmap_link_;
-    struct bpf_link *msync_link_;
-    struct bpf_link *openat_link_;
-    
-    struct ring_buffer *rb_;
-    std::thread poll_thread_;
-    std::atomic<bool> running_;
-    
-    std::function<void(const vfs_event&)> event_handler_;
-    bool initialized_;
 };
 
-} // namespace ebpf
-
-#endif // MEMORY_MAP_MONITOR_H 
+} // namespace ebpf 

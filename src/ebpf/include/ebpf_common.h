@@ -3,9 +3,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#pragma once
+#ifndef EBPF_COMMON_H
+#define EBPF_COMMON_H
 
 #include <linux/types.h>
+
+#define MAX_PATH_LEN 4096
 
 // Keep compatibility with existing kernel module
 #define ACT_NEW_FILE         0
@@ -25,12 +28,15 @@
 #define ACT_MOUNT            12
 #define ACT_UNMOUNT          13
 
+// New event types for I/O operations (optional, low priority)
+#define ACT_FILE_READ        14
+#define ACT_FILE_WRITE       15
+#define ACT_FILE_MODIFIED    16
+
 // Event source types for enhanced monitoring
 #define SYSCALL_SOURCE       0
 #define VFS_SOURCE          1
 #define MMAP_SOURCE         2
-
-#define MAX_PATH_LEN 4096
 
 // Event structure compatible with existing kernel module
 struct vfs_event {
@@ -45,5 +51,4 @@ struct vfs_event {
     char path[MAX_PATH_LEN];
 } __attribute__((packed));
 
-// Ring buffer size (256KB)
-#define RINGBUF_SIZE (256 * 1024) 
+#endif // EBPF_COMMON_H 
