@@ -16,7 +16,8 @@ message("Build type:" ${CMAKE_BUILD_TYPE})
 
 add_compile_options(-Wall -Wextra -pedantic -Werror)
 
-add_subdirectory("server")
-add_subdirectory("kernelmod")
-add_subdirectory("searcher")
-add_subdirectory("logger")
+add_subdirectory(kernelmod)
+add_subdirectory(logger)
+add_subdirectory(searcher)
+add_subdirectory(server)
+add_subdirectory(ebpf)

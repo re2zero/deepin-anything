@@ -89,6 +89,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../kernelmod>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../ebpf/include>
     # $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../3rdparty>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
     ${LUCENE_INCLUDE_DIRS}
@@ -113,6 +114,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     ${GIO_LIBRARIES}
     ${GMODULE_LIBRARIES}
     Qt${QT_VERSION_MAJOR}::Core
+    ebpf_event_source
 )
 
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Werror -Wextra)
